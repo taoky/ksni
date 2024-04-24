@@ -6,7 +6,6 @@ use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -34,8 +33,6 @@ use crate::{Handle, Tray};
 
 const SNI_PATH: &str = "/StatusNotifierItem";
 const MENU_PATH: &str = "/MenuBar";
-
-static COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 /// Service of the tray
 pub struct TrayService<T> {
@@ -86,13 +83,8 @@ impl<T: Tray + 'static> TrayService<T> {
     }
 
     fn build_processor(self) -> Result<Processor<T>, dbus::Error> {
-        let name = format!(
-            "org.kde.StatusNotifierItem-{}-{}",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::AcqRel)
-        );
         let conn = LocalConnection::new_session()?;
-        conn.request_name(&name, true, true, false)?;
+        let name = conn.unique_name().to_string();
 
         let (menu_cache, prop_cache) = {
             let state = self.tray.model.lock().unwrap();
